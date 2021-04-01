@@ -1,48 +1,105 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.HttpsPolicy;
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 using Microsoft.OpenApi.Models;
+using Hangfire;
+using Hangfire.SqlServer;
 using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
+using StartWithHangFire.Data.Context;
+using Microsoft.EntityFrameworkCore;
+using StartWithHangFire.Data.Repository.Interfaces;
+using StartWithHangFire.Data.Repository;
+using StartWithHangFire.Service;
+using StartWithHangFire.Configuration;
 
 namespace StartWithHangFire
 {
     public class Startup
     {
-        public Startup(IConfiguration configuration)
-        {
-            Configuration = configuration;
-        }
-
         public IConfiguration Configuration { get; }
+        public Startup(IHostEnvironment hostEnvironment)
+        {
+            var builder = new ConfigurationBuilder()
+               .SetBasePath(hostEnvironment.ContentRootPath)
+               .AddJsonFile("appsettings.json", true, true)
+               .AddJsonFile($"appsettings.{hostEnvironment.EnvironmentName}.json", true, true)
+               .AddEnvironmentVariables();
+
+            if (hostEnvironment.IsDevelopment())
+            {
+                builder.AddUserSecrets<Startup>();
+            }
+
+            Configuration = builder.Build();
+        }
 
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
-
             services.AddControllers();
-            services.AddSwaggerGen(c =>
+
+            //Dependency Injection
+            services.AddScoped<IUserRepository, UserRepository>();
+            services.AddScoped<ApplicationDbContext>();
+            services.AddScoped<IJobToProcess, JobToProcess>();
+
+            //Config Banco De dados
+            services.AddDbContext<ApplicationDbContext>(Options =>
+             Options.UseSqlServer(Configuration.GetConnectionString(name: "DefaultConnection")));
+
+            #region HangFire Configuration
+            // Add Hangfire services.
+            services.AddHangfire(configuration => configuration
+                .UseSqlServerStorage(Configuration.GetConnectionString("HangfireConnection"), new SqlServerStorageOptions
+                {
+                    CommandBatchMaxTimeout = TimeSpan.FromMinutes(5),
+                    SlidingInvisibilityTimeout = TimeSpan.FromMinutes(5),
+                    QueuePollInterval = TimeSpan.Zero,
+                    UseRecommendedIsolationLevel = true,
+                    DisableGlobalLocks = true
+                }));
+
+            // Add the processing server as IHostedService
+            services.AddHangfireServer(opt =>
             {
-                c.SwaggerDoc("v1", new OpenApiInfo { Title = "StartWithHangFire", Version = "v1" });
+                opt.ServerName = "MainServer";
+                opt.WorkerCount = 4;
+                opt.Queues = new[] { "mainfila1", "mainfila2", "default" };
             });
+
+            // Add framework services.
+            services.AddMvc();
+            #endregion
+
+            services.AddSwaggerConfiguration();
+
+
         }
 
         // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
         {
+            app.UseSwaggerConfiguration();
+
             if (env.IsDevelopment())
             {
                 app.UseDeveloperExceptionPage();
-                app.UseSwagger();
-                app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "StartWithHangFire v1"));
             }
+
+            #region HangFire 
+            //app.UseHangfireServer(new BackgroundJobServerOptions
+            //{
+            //    ServerName = String.Format("Jack_Server"),
+            //    WorkerCount = 4,
+            //    Queues = new[] { "fila1", "fila2" }
+            //});
+
+            app.UseHangfireDashboard();
+            //backgroundJobs.Enqueue(() => Console.WriteLine("Hello world from Hangfire!"));
+            #endregion
+
 
             app.UseHttpsRedirection();
 
@@ -53,6 +110,9 @@ namespace StartWithHangFire
             app.UseEndpoints(endpoints =>
             {
                 endpoints.MapControllers();
+
+                //HangFire
+                endpoints.MapHangfireDashboard();
             });
         }
     }
