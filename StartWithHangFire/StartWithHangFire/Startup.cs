@@ -98,6 +98,10 @@ namespace StartWithHangFire
 
             app.UseHangfireDashboard();
             //backgroundJobs.Enqueue(() => Console.WriteLine("Hello world from Hangfire!"));
+
+
+            //IBackgroundJobClient backgroundJobs
+            //app.StartFireAndForget(backgroundJobs);
             #endregion
 
 

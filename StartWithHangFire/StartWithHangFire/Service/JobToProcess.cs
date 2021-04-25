@@ -21,7 +21,7 @@ namespace StartWithHangFire.Service
                 var user = new User
                 {
                     Id = id,
-                    Name = $"{id} + {message}",
+                    Name = $"{message}",
                     Description = $"Usuario salvo pelo método: {message} às {DateTime.Now}",
                     CreatedAt = DateTime.Now
                 };

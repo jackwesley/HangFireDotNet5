@@ -26,7 +26,7 @@ namespace StartWithHangFire.Controllers
         [HttpGet("jobs/home")]
         public IActionResult Index()
         {
-            return Ok("Api Web HangFire runing...");
+            return Ok("Api Web HangFire running...");
         }
 
         /// <summary>
@@ -84,9 +84,8 @@ namespace StartWithHangFire.Controllers
         public IActionResult RecurringJobAddOrUpdate()
         {
             RecurringJob.AddOrUpdate<IJobToProcess>(
-                                                methodCall: job => job.InsertUser("RecurringJobAddOrUpdate"),
-                                                cronExpression: Cron.Minutely,
-                                                queue: "fila2");
+                                                methodCall: job => job.InsertUser("RecurringJob-AddOrUpdate"),
+                                                cronExpression: Cron.Minutely);
 
             return Ok("Job Criado com Sucesso");
         }
@@ -97,18 +96,18 @@ namespace StartWithHangFire.Controllers
         {
             _recuringJobManager.AddOrUpdate<IJobToProcess>(
                                                 recurringJobId: Guid.NewGuid().ToString(),
-                                                methodCall: job => job.InsertUser("RecurringJob"),
+                                                methodCall: job => job.InsertUser("RecurringJob2-AddOrUpdate"),
                                                 cronExpression: Cron.Minutely,
                                                 queue: "mainfila1");
 
-            return Ok("recuring-job2 Criado com Sucesso");
+            return Ok("Recuring-job2 Criado com Sucesso");
         }
 
         [HttpGet("jobs/exception-job")]
         public IActionResult ExceptionJob()
         {
             BackgroundJob.Enqueue<IJobToProcess>(x =>
-                x.JobException("Enqueue Job And Have Exception"));
+                x.JobException("Enqueue Job And Throw Exception"));
 
             return Ok("Job Criado com Sucesso");
         }
@@ -117,7 +116,7 @@ namespace StartWithHangFire.Controllers
         public IActionResult Enqueue()
         {
             BackgroundJob.Enqueue<IJobToProcess>(x =>
-                x.InsertUser("Enqueued Job To sabe An User"));
+                x.InsertUser("Enqueued Job To save an User"));
 
             return Ok("Job Criado com Sucesso");
         }
